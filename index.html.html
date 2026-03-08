@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NICU Glucose Infusion Rate (GIR) Calculator</title>
+  <style>
+    :root{
+      --bg1:#eef6ff; --bg2:#fdf2f8; --text:#0f172a; --muted:#64748b;
+      --primary:#2563eb; --primary2:#7c3aed; --red:#dc2626;
+      --warn-bg:#fff7ed; --warn-border:#fdba74; --warn-text:#9a3412;
+      --shadow:0 10px 28px rgba(37,99,235,0.12); --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--text);
+      background:
+        radial-gradient(circle at top left, var(--bg1), transparent 35%),
+        radial-gradient(circle at top right, var(--bg2), transparent 30%),
+        #f8fafc;
+    }
+    .container{max-width:880px;margin:0 auto;padding:14px}
+    h1{margin:0;font-size:28px;line-height:1.05}
+    .subtitle{margin-top:4px;color:var(--muted);font-size:13px}
+    .credit{margin-top:3px;font-size:12.5px;color:#64748b}
+    .hero{margin-bottom:10px}
+    .card{
+      background:rgba(255,255,255,.96); border:1px solid rgba(219,234,254,.9);
+      border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; margin-bottom:12px;
+    }
+    .card-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+    .card-title{margin:0;font-size:18px;font-weight:800}
+    label{display:block;font-size:12px;font-weight:800;margin-bottom:4px;color:#1e293b}
+    input,button{font:inherit}
+    input{
+      width:100%;border:1px solid #cbd5e1;border-radius:11px;padding:9px 10px;background:white;outline:none;
+      appearance:textfield;-moz-appearance:textfield
+    }
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    .btn{border:none;border-radius:11px;padding:9px 12px;cursor:pointer;font-weight:800}
+    .btn-primary{color:white;background:linear-gradient(135deg, var(--primary), var(--primary2));box-shadow:0 8px 18px rgba(37,99,235,.22)}
+    .btn-outline{background:white;color:var(--text);border:1px solid #cbd5e1}
+    .btn-small{padding:7px 10px;font-size:13px}
+    .weight-wrap{max-width:220px}
+    .fluid-block{
+      border:1px solid #dbeafe;background:linear-gradient(180deg, #ffffff, #f8fbff);
+      border-radius:16px;padding:12px;margin-bottom:9px
+    }
+    .fluid-title{margin:0 0 8px 0;font-size:15px;font-weight:800;color:#1d4ed8}
+    .compact-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .metric-grid{display:grid;gap:10px;grid-template-columns:repeat(3, minmax(0,1fr))}
+    .metric{border-radius:16px;padding:12px;min-height:88px}
+    .gir{background:linear-gradient(135deg,#dbeafe,#bfdbfe)}
+    .fluid{background:linear-gradient(135deg,#fce7f3,#fbcfe8)}
+    .kcal{background:linear-gradient(135deg,#dcfce7,#bbf7d0)}
+    .metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#334155;font-weight:800}
+    .metric-value{margin-top:7px;font-size:28px;font-weight:900;line-height:1}
+    .metric-unit{margin-top:4px;font-size:12px;color:#334155;font-weight:700}
+    .error{font-size:22px;color:var(--red);margin-top:4px;min-height:13px}
+    .warning{background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text)}
+    .warning-text{font-weight:800;line-height:1.45;font-size:14px}
+    .bottom-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .footer-note{
+      text-align:center;
+      padding:0 8px 16px 8px;
+      font-size:11px;
+      color:#64748b;
+    }
+    @media (max-width:700px){.container{padding:10px} h1{font-size:24px} .compact-row,.metric-grid{grid-template-columns:1fr} .metric-value{font-size:24px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>NICU Glucose Infusion Rate (GIR) Calculator</h1>
+      <div class="subtitle">Total GIR, total fluids, and glucose calories.</div>
+      <div class="credit">Designed by Tom Mundakel, MD</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Patient</h2></div>
+      <div class="weight-wrap">
+        <label for="weight">Weight (g)</label>
+        <input id="weight" type="text" inputmode="decimal" placeholder="e.g. 500" oninput="updateAllOutputs()">
+        <div id="weightError" class="error"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">IV Fluids</h2></div>
+      <div id="fluidsContainer">
+        <div class="fluid-block">
+          <div class="fluid-title">Fluid 1</div>
+          <div class="compact-row">
+            <div>
+              <label>Dextrose (%)</label>
+              <input type="text" inputmode="decimal" list="dextroseOptions" class="dextrose-input" placeholder="0, 2.5 ... 25" oninput="updateAllOutputs()">
+              <div class="error dextrose-error"></div>
+            </div>
+            <div>
+              <label>Rate (mL/hr)</label>
+              <input type="text" inputmode="decimal" class="rate-input" placeholder="e.g. 2.4" oninput="updateAllOutputs()">
+              <div class="error rate-error"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button id="addFluidBtn" type="button" class="btn btn-primary">+ Add IV fluid</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Totals</h2></div>
+      <div class="metric-grid">
+        <div class="metric gir"><div class="metric-label">Total GIR</div><div id="totalGir" class="metric-value">0</div><div class="metric-unit">mg/kg/min</div></div>
+        <div class="metric fluid"><div class="metric-label">Total Fluids</div><div id="totalFluid" class="metric-value">0</div><div class="metric-unit">mL/kg/day</div></div>
+        <div class="metric kcal"><div class="metric-label">Glucose Calories</div><div id="totalKcal" class="metric-value">0</div><div class="metric-unit">kcal/kg/day</div></div>
+      </div>
+    </div>
+
+    <div id="warningCard" class="card warning" style="display:none;">
+      <div class="card-header"><h2 class="card-title">Warning</h2></div>
+      <div id="warningText" class="warning-text"></div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;padding:2px 2px 14px 2px;">
+      <button id="resetBtn" type="button" class="btn btn-outline btn-small">Reset</button>
+    </div>
+
+    <div class="footer-note">
+      Contact Dr. Mundakel at nicumd@gmail.com with comments/suggestions.
+    </div>
+  </div>
+
+  <datalist id="dextroseOptions"></datalist>
+
+  <script>
+    function toNumber(value){
+      var n = parseFloat(value);
+      return isFinite(n) ? n : 0;
+    }
+    function round(value, digits){
+      if (digits === undefined) digits = 2;
+      return isFinite(value) ? Number(value.toFixed(digits)) : 0;
+    }
+    function isValidDextroseStep(value){
+      var doubled = value * 2;
+      return Math.abs(doubled - Math.round(doubled)) < 1e-9;
+    }
+    function validateDextrose(raw){
+      if (raw === "") return "";
+      var n = parseFloat(raw);
+      if (!isFinite(n)) return "Enter a numeric value.";
+      if (n < 0 || n > 25) return "Use 0 to 25%.";
+      if (n !== 0 && n < 2.5) return "Use 0 or 2.5 to 25%.";
+      if (!isValidDextroseStep(n)) return "Use 0.5% increments.";
+      return "";
+    }
+    function validateRate(raw){
+      if (raw === "") return "";
+      var n = parseFloat(raw);
+      if (!isFinite(n) || n < 0) return "Enter a valid rate.";
+      return "";
+    }
+    function getWeightKg(){
+      var w = toNumber(document.getElementById("weight").value);
+      return w > 0 ? w / 1000 : 0;
+    }
+    function fillDatalist(){
+      var dl = document.getElementById("dextroseOptions");
+      var html = '<option value="0"></option>';
+      for (var v = 2.5; v <= 25.0001; v += 0.5) {
+        html += '<option value="' + Number(v.toFixed(1)).toString() + '"></option>';
+      }
+      dl.innerHTML = html;
+    }
+    function computeFluid(dextroseRaw, rateRaw, weightKg){
+      var dextroseError = validateDextrose(dextroseRaw);
+      var rateError = validateRate(rateRaw);
+      var dextrose = toNumber(dextroseRaw);
+      var rate = toNumber(rateRaw);
+      var canCalculate = weightKg > 0 && !dextroseError && !rateError && dextroseRaw !== "" && rateRaw !== "";
+      if (!canCalculate) {
+        return { gir:0, fluidPerKgDay:0, kcalPerKgDay:0, dextroseError:dextroseError, rateError:rateError };
+      }
+      return {
+        gir: (dextrose * rate * 10) / (weightKg * 60),
+        fluidPerKgDay: (rate * 24) / weightKg,
+        kcalPerKgDay: (dextrose * rate * 24 * 3.4) / (100 * weightKg),
+        dextroseError:dextroseError,
+        rateError:rateError
+      };
+    }
+    function updateAllOutputs(){
+      var weightKg = getWeightKg();
+      document.getElementById("weightError").textContent =
+        document.getElementById("weight").value !== "" && weightKg <= 0 ? "Enter a valid weight greater than 0." : "";
+
+      var totalGir = 0, totalFluid = 0, totalKcal = 0;
+      var blocks = document.querySelectorAll(".fluid-block");
+      for (var i = 0; i < blocks.length; i++) {
+        var block = blocks[i];
+        var d = block.querySelector(".dextrose-input").value;
+        var r = block.querySelector(".rate-input").value;
+        var result = computeFluid(d, r, weightKg);
+        block.querySelector(".dextrose-error").textContent = result.dextroseError || "";
+        block.querySelector(".rate-error").textContent = result.rateError || "";
+        totalGir += result.gir;
+        totalFluid += result.fluidPerKgDay;
+        totalKcal += result.kcalPerKgDay;
+      }
+
+      document.getElementById("totalGir").textContent = round(totalGir);
+      document.getElementById("totalFluid").textContent = round(totalFluid);
+      document.getElementById("totalKcal").textContent = round(totalKcal);
+
+      var warnings = [];
+      if (weightKg > 0 && totalGir > 0 && totalGir < 3) warnings.push("Total GIR is below 3 mg/kg/min.");
+      if (totalGir > 15) warnings.push("Total GIR is above 15 mg/kg/min.");
+
+      var warningCard = document.getElementById("warningCard");
+      var warningText = document.getElementById("warningText");
+      if (warnings.length) {
+        warningText.innerHTML = warnings.map(function(w){ return "<div>" + w + "</div>"; }).join("");
+        warningCard.style.display = "block";
+      } else {
+        warningText.innerHTML = "";
+        warningCard.style.display = "none";
+      }
+    }
+    function addFluid(){
+      var container = document.getElementById("fluidsContainer");
+      var index = container.querySelectorAll(".fluid-block").length + 1;
+      var block = document.createElement("div");
+      block.className = "fluid-block";
+      block.innerHTML =
+        '<div class="fluid-title">Fluid ' + index + '</div>' +
+        '<div class="compact-row">' +
+          '<div><label>Dextrose (%)</label>' +
+          '<input type="text" inputmode="decimal" list="dextroseOptions" class="dextrose-input" placeholder="0, 2.5 ... 25" oninput="updateAllOutputs()">' +
+          '<div class="error dextrose-error"></div></div>' +
+          '<div><label>Rate (mL/hr)</label>' +
+          '<input type="text" inputmode="decimal" class="rate-input" placeholder="e.g. 2.4" oninput="updateAllOutputs()">' +
+          '<div class="error rate-error"></div></div>' +
+        '</div>';
+      container.appendChild(block);
+      updateAllOutputs();
+    }
+    function resetAll(){
+      document.getElementById("weight").value = "";
+      var container = document.getElementById("fluidsContainer");
+      container.innerHTML =
+        '<div class="fluid-block">' +
+          '<div class="fluid-title">Fluid 1</div>' +
+          '<div class="compact-row">' +
+            '<div><label>Dextrose (%)</label>' +
+            '<input type="text" inputmode="decimal" list="dextroseOptions" class="dextrose-input" placeholder="0, 2.5 ... 25" oninput="updateAllOutputs()">' +
+            '<div class="error dextrose-error"></div></div>' +
+            '<div><label>Rate (mL/hr)</label>' +
+            '<input type="text" inputmode="decimal" class="rate-input" placeholder="e.g. 2.4" oninput="updateAllOutputs()">' +
+            '<div class="error rate-error"></div></div>' +
+          '</div>' +
+        '</div>';
+      updateAllOutputs();
+    }
+
+    fillDatalist();
+    document.getElementById("addFluidBtn").onclick = addFluid;
+    document.getElementById("resetBtn").onclick = resetAll;
+    updateAllOutputs();
+  </script>
+</body>
+</html>
